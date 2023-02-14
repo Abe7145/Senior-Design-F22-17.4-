@@ -1,0 +1,97 @@
+/*
+   -- Hearthstone windows REV1 --
+   
+   This source code of graphical user interface 
+   has been generated automatically by RemoteXY editor.
+   To compile this code using RemoteXY library 3.1.8 or later version 
+   download by link http://remotexy.com/en/library/
+   To connect using RemoteXY mobile app by link http://remotexy.com/en/download/                   
+     - for ANDROID 4.11.1 or later version;
+     - for iOS 1.9.1 or later version;
+    
+   This source code is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.    
+*/
+
+//////////////////////////////////////////////
+//        RemoteXY include library          //
+//////////////////////////////////////////////
+
+// RemoteXY select connection mode and include library 
+#define REMOTEXY_MODE__ESP8266_SOFTSERIAL_POINT
+#include <SoftwareSerial.h>
+
+#include <RemoteXY.h>
+
+// RemoteXY connection settings 
+#define REMOTEXY_SERIAL_RX 2
+#define REMOTEXY_SERIAL_TX 3
+#define REMOTEXY_SERIAL_SPEED 9600
+#define REMOTEXY_WIFI_SSID "Hearthstone Windows"
+#define REMOTEXY_WIFI_PASSWORD "12345678"
+#define REMOTEXY_SERVER_PORT 6377
+
+
+// RemoteXY configurate  
+#pragma pack(push, 1)
+uint8_t RemoteXY_CONF[] =   // 247 bytes
+  { 255,5,0,11,0,240,0,16,27,5,130,1,2,61,38,36,0,28,130,1,
+  41,61,21,36,0,28,130,1,17,1,30,23,0,28,129,0,19,3,25,4,
+  0,6,67,76,79,83,69,47,79,80,69,78,0,10,48,47,84,10,10,0,
+  4,26,31,79,78,0,31,79,70,70,0,1,0,47,68,9,9,0,36,31,
+  0,129,0,49,65,5,2,0,6,75,73,76,76,63,0,129,0,43,81,18,
+  2,0,6,65,85,84,79,32,87,69,65,84,72,69,82,63,0,7,52,8,
+  84,28,9,0,12,26,4,67,4,11,67,20,9,0,12,26,11,129,0,10,
+  64,22,2,0,204,67,85,82,82,32,80,79,83,73,84,73,79,78,32,40,
+  73,78,67,72,41,0,1,0,25,8,14,14,0,4,31,0,129,0,9,81,
+  26,2,0,6,83,69,84,32,79,80,69,78,32,80,79,83,73,84,73,79,
+  78,32,40,73,78,67,72,41,0,131,1,9,34,45,10,1,29,12,72,101,
+  97,114,116,104,115,116,111,110,101,0,131,0,15,44,34,10,2,29,12,87,
+  105,110,100,111,119,115,0 };
+  
+// this structure defines all the variables and events of your control interface 
+struct {
+
+    // input variables
+  uint8_t weatherCtrlFlag; // =1 if state is ON, else =0 
+  uint8_t killFlag; // =1 if button pressed, else =0 
+  int16_t maxOpenPos;  // 32767.. +32767 
+  uint8_t windowPosFlag; // =1 if button pressed, else =0 
+
+    // output variables
+  char currPos[11];  // string UTF8 end zero 
+
+    // other variable
+  uint8_t connect_flag;  // =1 if wire connected, else =0 
+
+} RemoteXY;
+#pragma pack(pop)
+
+/////////////////////////////////////////////
+//           END RemoteXY include          //
+/////////////////////////////////////////////
+
+
+
+void setup() 
+{
+  RemoteXY_Init (); 
+  
+  
+  // TODO you setup code
+  
+}
+
+void loop() 
+{ 
+  RemoteXY_Handler ();
+  
+  
+  // TODO you loop code
+  // use the RemoteXY structure for data transfer
+  // do not call delay() 
+
+
+}
