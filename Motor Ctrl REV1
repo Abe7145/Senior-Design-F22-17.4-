@@ -1,14 +1,11 @@
-#include <DualMC33926MotorShield.h>
 #include <Wire.h>
-#define SLAVE_ADDRESS 0x02
-#define PI_ADDRESS 0x20
+#include <Adafruit_MotorShield.h>
 
 
-DualMC33926MotorShield md;
+// Connect to the two encoder pin
+#define ENCODER_A   2
+#define ENCODER_B   5
 
-// Pin A and pin B define the CLK and DT outputs of the encoder, respectively
-const int PIN_A = 2;
-const int PIN_B = 5;
 
 // This program uses a state machine to track the encoder’s position
 // These variables store the state
@@ -17,12 +14,18 @@ bool A_CURRENT_STATE = 0;
 bool B_CURRENT_STATE = 0;
 
 
+// Create the motor shield object with the default I2C address
+Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+// And connect a DC motor to port M1
+Adafruit_DCMotor *myMotor = AFMS.getMotor(1);
+
+
 int count; // measures motor encoder counts -- unitless
 int intError = 0; //integral error for I in PI controller -- tenths of a degree second       
 int prevMyTime = 0; //previous loop time marker -- milliseconds 
 int currMyTime = 0; //current time marker -- milliseconds 
 int prev_pos = 0; // stores the position of the motor in the previous loop -- position in degrees
-int target = 0; // target position -- position in degrees
+int target = 30; // target position -- position in degrees
 double motorVal = 0;//variable to hold the value we write to the motor -- units in degrees
 double current_pos = 0; // current position of the motor -- position in degrees
 
@@ -30,40 +33,34 @@ double current_pos = 0; // current position of the motor -- position in degrees
 const double Ki = 0.01;
 const double Kp = 3.5;
 
-//C code for Arduino
-//#get the value that the pi sent to determine which quadrent(only 4 cases) it is in
-//void receiveData(int byteCount) {
-//  case = wire.read(); #variable case is what quadrent or which of the 4 cases the aruco marker is at
-//}
-
 void setup() {
 
   // Encoder pins
-  pinMode(PIN_A, INPUT);
-  pinMode(PIN_B, INPUT);
+  pinMode(ENCODER_A, INPUT);
+  pinMode(ENCODER_B, INPUT);
 
-  // i2c pins
-  pinMode(12,INPUT);
-  pinMode(13, OUTPUT);
+  Serial.begin(9600);
 
-  Serial.begin(115200);
+  A_LAST_STATE = digitalRead(ENCODER_A);
   
   // Setting up the interrupt handler 
   // Activates whenever the CLK pin on the encoder changes voltage
-  attachInterrupt(digitalPinToInterrupt(2), TICK, CHANGE); 
-  md.init(); //intialize motor
-  delay(500); //delay to let motor initialize
+  attachInterrupt(digitalPinToInterrupt(ENCODER_A), TICK, CHANGE); 
 
-  // i2c interrupt initialization 
-  Wire.begin(PI_ADDRESS);
-  Wire.onReceive(PI_READ);
-  Wire.onRequest(PI_WRITE);
+  delay(100);
+  //if (!AFMS.begin()) {         // create with the default frequency 1.6KHz
+  if (!AFMS.begin(1000)) {  // OR with a different frequency, say 1KHz
+    Serial.println("Could not find Motor Shield. Check wiring.");
+    while (1);
+  }
+  Serial.println("Motor Shield found.");  Serial.println("Begun");
+  // turn on motor M1
+  //myMotor->setSpeed(0);
+  
   
 }
 
 void loop() {
-  // Nothing happens in the main loop due to interrupt handler
-  // Serial.println("Austin is a dumbass");
 
   // Normalizing the unitless encoder counts into a 360 degree rotation
   current_pos = double(count)/8.88;//2.22
@@ -88,91 +85,40 @@ void loop() {
     // takes in values from -400 to 400
     // uses a built in PWM to control the voltage supplied to the motor
     motorVal = double(( target-current_pos )) * Kp + (Ki * double(intError)); //calculate the motor val
-    md.setM1Speed( motorVal );
-    
+    //md.setM1Speed( motorVal );
+
+    motorVal *= 255/400; //normalize to 0-255 for adafruit
+    Serial.print("motorVal: ");
+    Serial.println(motorVal);
+    myMotor->run(FORWARD);
+    myMotor->setSpeed(motorVal);
   }
 
-}
-
-
-// i2c interrupt handler for receive request from PI
-void PI_READ(int byteCount) { 
-
-  // stores data sent from Pi to Arduino -- rotation position given by aruco marker
-  int data = 0;
-  data = Wire.read(); // receive a byte as character
-  
-
-  // PI sends 0,1,2,3 depending on quadrant the aruco marker is placed in
-  switch(data) {
-    case 0:
-      target = 0; 
-      break;
-    case 1:
-      target = 90;
-      break;
-    case 2:
-      target = 180;
-      break;
-    case 3:
-      target = 270;
-      break;
-  }
-
-}
-
-// instantiate index to iterate through charArray inside of the PI_WRITE loop
-int index = 0;
-
-// i2c interrupt handler for request request from PI
-void PI_WRITE() {
-
-    // if current position is negative, normalize to a degree value from 0-360
-    if ( current_pos < 0 ) {
-
-      current_pos = 360 + current_pos;
-      
-    }
-
-    // Convert current_pos integer into a character array
-    // I2C wire write is only compatible with bytes
-    // the serial protocol gets confused with integers - must use a char array
-    String myNum = String(current_pos);
-    int string_length = myNum.length() + 1;
-    char charArray[string_length];
-    myNum.toCharArray(charArray, string_length);
-
-    // Send value to Pi
-    Wire.write(charArray[index]);
-    ++index;
-    if (index >= 3) {
-         index = 0;
-    }
-    
 }
 
 // Encoder interrupt
 void TICK() {
-
+  //Serial.print("here");
   // Normalize values over 360 degrees into values from 0-360
   if ( count >= 3200 ) {
 
     count = 0;
   }
 
-  A_CURRENT_STATE = digitalRead(PIN_A);//read state of signal A
-  B_CURRENT_STATE = digitalRead(PIN_B);//read state of signal B
-  
-  if (A_CURRENT_STATE==B_CURRENT_STATE){ //if the signals are the same
+  A_CURRENT_STATE = digitalRead(ENCODER_A);//read state of signal A
+  B_CURRENT_STATE = digitalRead(ENCODER_B);//read state of signal B
 
-    count-=1;//subract from the count
+  if (A_CURRENT_STATE != A_LAST_STATE){
+    if (A_CURRENT_STATE==B_CURRENT_STATE){ //if the signals are the same
+  
+      count-=1;//subract from the count
+    }
+    else {//if signals are different
+      count+=1;//add 2 to the count
+    }
+     Serial.print( A_CURRENT_STATE );
+     Serial.print( "  " );
+     Serial.print( B_CURRENT_STATE );
+     Serial.print( '\n' );
   }
-  else {//if signals are different
-    count+=1;//add 2 to the count
-  }
-   /*Serial.print( A_CURRENT_STATE );
-   Serial.print( "  " );
-   Serial.print( B_CURRENT_STATE );
-   Serial.print(degree);
-   Serial.print( '\n' );// */
 }
