@@ -3,7 +3,7 @@
 
 // Connect to the two encoder pin
 #define ENCODER_A   2
-#define ENCODER_B   3
+#define ENCODER_B   5
 
 // These let us convert ticks-to-RPM
 #define GEARING     20  // gear ratio?
@@ -19,10 +19,15 @@ volatile uint32_t lastA = 0;
 volatile bool motordir = FORWARD;
 
 void interruptA() {
+  //Serial.print("here");
   motordir = digitalRead(ENCODER_B);
 
   digitalWrite(LED_BUILTIN, HIGH);
   uint32_t currA = micros();
+  //Serial.print("currA: ");
+  //Serial.println(currA);
+  //Serial.print("lastA: ");
+  //Serial.println(lastA);
   if (lastA < currA) {
     // did not wrap around
     float rev = currA - lastA;  // us
@@ -42,9 +47,9 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
 
-  pinMode(ENCODER_B, INPUT_PULLUP);
-  pinMode(ENCODER_A, INPUT_PULLUP);
-  attachInterrupt(ENCODER_A, interruptA, RISING);
+  pinMode(ENCODER_B, INPUT);
+  pinMode(ENCODER_A, INPUT);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_A), interruptA, CHANGE);
 
   delay(100);
 
