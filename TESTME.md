@@ -1,0 +1,3 @@
+-Torque strength
+-Going backwards
+-WiFi stuff
