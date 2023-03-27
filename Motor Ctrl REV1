@@ -1,11 +1,43 @@
+/*
+   -- Hearthstone windows REV1 --
+   
+   This source code of graphical user interface 
+   has been generated automatically by RemoteXY editor.
+   To compile this code using RemoteXY library 3.1.8 or later version 
+   download by link http://remotexy.com/en/library/
+   To connect using RemoteXY mobile app by link http://remotexy.com/en/download/                   
+     - for ANDROID 4.11.1 or later version;
+     - for iOS 1.9.1 or later version;
+    
+   This source code is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.    
+*/
+
+//////////////////////////////////////////////
+//        RemoteXY include library          //
+//////////////////////////////////////////////
+
+// RemoteXY select connection mode and include library 
+#define REMOTEXY_MODE__ESP8266_HARDSERIAL_POINT
+#include <RemoteXY.h>
+
+
+// RemoteXY connection settings 
+#define REMOTEXY_SERIAL Serial
+#define REMOTEXY_SERIAL_SPEED 115200
+#define REMOTEXY_WIFI_SSID "Hearthstone Windows"
+#define REMOTEXY_WIFI_PASSWORD "12345678"
+#define REMOTEXY_SERVER_PORT 6377
+
+
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-
 
 // Connect to the two encoder pin
 #define ENCODER_A   2
 #define ENCODER_B   5
-
 
 // This program uses a state machine to track the encoder’s position
 // These variables store the state
@@ -13,12 +45,10 @@ bool A_LAST_STATE = 0;
 bool A_CURRENT_STATE = 0;
 bool B_CURRENT_STATE = 0;
 
-
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 // And connect a DC motor to port M1
 Adafruit_DCMotor *myMotor = AFMS.getMotor(1);
-
 
 int count; // measures motor encoder counts -- unitless
 int intError = 0; //integral error for I in PI controller -- tenths of a degree second       
@@ -28,21 +58,56 @@ int prev_pos = 0; // stores the position of the motor in the previous loop -- po
 int target = 180; // target position -- position in degrees
 double motorVal = 0;//variable to hold the value we write to the motor -- units in degrees
 static double current_pos = 0; // current position of the motor -- position in degrees
-bool openFlag = 0;
-bool hitFlag = 0;
-bool closeFlag = 0;
+bool openFlag = 0; // window open/close indicator
+bool hitFlag = 0; // target reached flag
+bool closeFlag = 0; // close/open flag
+bool activateFlag = 0; // button press flag
 
 // Proportional controller constants
 const double Ki = 0.0008; // 0.01
 const double Kp = 9.5; //3.5
 
-void setup() {
+
+// RemoteXY configurate  
+#pragma pack(push, 1)
+uint8_t RemoteXY_CONF[] =   // 72 bytes
+  { 255,4,0,11,0,65,0,16,27,1,129,0,19,3,25,4,94,67,76,79,
+  83,69,47,79,80,69,78,0,10,48,47,84,10,10,4,26,31,79,78,0,
+  31,79,70,70,0,7,52,8,84,28,9,12,26,4,67,4,11,67,20,9,
+  12,26,11,1,0,25,8,14,14,4,31,0 };
+  
+// this structure defines all the variables and events of your control interface 
+struct {
+
+    // input variables
+  uint8_t weatherCtrlFlag; // =1 if state is ON, else =0 
+  int16_t maxOpenPos;  // 32767.. +32767 
+  uint8_t windowPosFlag; // =1 if button pressed, else =0 
+
+    // output variables
+  char currPos[11];  // string UTF8 end zero 
+
+    // other variable
+  uint8_t connect_flag;  // =1 if wire connected, else =0 
+
+} RemoteXY;
+#pragma pack(pop)
+
+/////////////////////////////////////////////
+//           END RemoteXY include          //
+/////////////////////////////////////////////
+
+
+
+void setup() 
+{
+  RemoteXY_Init (); 
 
   // Encoder pins
   pinMode(ENCODER_A, INPUT);
   pinMode(ENCODER_B, INPUT);
 
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   A_LAST_STATE = digitalRead(ENCODER_A);
   
@@ -50,7 +115,7 @@ void setup() {
   // Activates whenever the CLK pin on the encoder changes voltage
   attachInterrupt(digitalPinToInterrupt(ENCODER_A), TICK, CHANGE); 
 
-  delay(100);
+  //delay(100);
   //if (!AFMS.begin()) {         // create with the default frequency 1.6KHz
   if (!AFMS.begin(1000)) {  // OR with a different frequency, say 1KHz
     Serial.println("Could not find Motor Shield. Check wiring.");
@@ -60,33 +125,31 @@ void setup() {
   // turn on motor M1
   //myMotor->setSpeed(0);
   
-  
 }
 
-void loop() {
+void loop() { 
+  RemoteXY_Handler ();
 
-  // Normalizing the unitless encoder counts into a 360 degree rotation
+  // if windowPosFlag, set activageFlag=1
+
+//  Serial.print("weatherCtrlFlag: ");
+//  Serial.println(RemoteXY.weatherCtrlFlag);
+//  Serial.print("maxOpenPos: ");
+//  Serial.println(RemoteXY.maxOpenPos);
+//  Serial.print("windowPosFlag: ");
+//  Serial.println(RemoteXY.windowPosFlag);
+//  Serial.print("connect_flag: ");
+//  Serial.println(RemoteXY.connect_flag);
+   
+    // Normalizing the unitless encoder counts into a 360 degree rotation
   current_pos = abs(double(count))/35.55;//2.22 , 8.88
 
-  
-
-  
-//  if (current_pos-target <=  2 && current_pos-target >=  -2){// THIS IF STATEMENT IS SUPER DUPER IMPORTANT!!!!!!!!!!!!
-//    current_pos = target;                // There is some noise in the system that will cause everything to become unstable
-//    intError = 0;                         // This if statement rejects such noise and keeps the system from running away
-//    openFlag = 1;   //window is open (an indicator - not a command)
-//    if (openFlag && !closeFlag){
-//      count = 0;
-//      current_pos = 0;
-//      closeFlag = 1;
-//    } 
-//  }
-
-  if (current_pos-target <=  2 && current_pos-target >=  -2){ //if system is within 2 deg
+  if (current_pos-target <=  3 && current_pos-target >=  -3){ //if system is within 2 deg
     current_pos = target;
     intError = 0;                         
     count = 0;
     hitFlag = 1;   //window hits target (an indicator - not a command)
+    //activateFlag = 0; 
     if (hitFlag && !closeFlag){
       closeFlag = 1;    //going to close window
       hitFlag = 0;
@@ -97,40 +160,46 @@ void loop() {
     }
   
   }
-  
-  currMyTime = millis();//get current time
-  if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
-
-    // calculating integral error
-    intError += (current_pos-target);
-
-    // storing dt
-    prev_pos = current_pos;//reset prev_pos
-    prevMyTime = currMyTime;//reset prevMyTime
-
-    // use built in shield library to move the motor 
-    // takes in values from -400 to 400
-    // uses a built in PWM to control the voltage supplied to the motor
-    motorVal = double( target-current_pos ) * Kp + (Ki * double(intError)); //calculate the motor val
-    //md.setM1Speed( motorVal );
-
-    if (motorVal > 255) {
-      motorVal = 255;
-    }
-    motorVal = int(motorVal);//normalize to 0-255 for adafruit ? values can be greater than 400?
+  //Serial.print("windowPosFlag: ");
+  //Serial.println(RemoteXY.windowPosFlag);
+  if (RemoteXY.windowPosFlag && !hitFlag){  //only activates if the button has been pressed and target is not hit
     
-    Serial.print("target: ");
-    Serial.println(target);
-    Serial.print("counts: ");
-    Serial.println(count);
-    Serial.print("current_pos: ");
-    Serial.println(current_pos);
-    Serial.print("intError: ");
-    Serial.println(double(intError));
-    Serial.print("motorVal: ");
-    Serial.println(motorVal);
-    Serial.print("openFlag: ");
-    Serial.println(openFlag);
+    currMyTime = millis();//get current time
+    if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
+  
+      // calculating integral error
+      intError += (current_pos-target);
+  
+      // storing dt
+      prev_pos = current_pos;//reset prev_pos
+      prevMyTime = currMyTime;//reset prevMyTime
+  
+      // use built in shield library to move the motor 
+      // takes in values from -400 to 400
+      // uses a built in PWM to control the voltage supplied to the motor
+      motorVal = double( target-current_pos ) * Kp + (Ki * double(intError)); //calculate the motor val
+      //md.setM1Speed( motorVal );
+  
+      if (motorVal > 255) {
+        motorVal = 255;
+      }
+      motorVal = int(motorVal);//normalize to 0-255 for adafruit ? values can be greater than 400?
+    }
+    
+    
+    
+    //Serial.print("target: ");
+    //Serial.println(target);
+//    Serial.print("counts: ");
+//    Serial.println(count);
+    //Serial.print("current_pos: ");
+    //Serial.println(current_pos);
+//    Serial.print("intError: ");
+//    Serial.println(double(intError));
+//    Serial.print("motorVal: ");
+//    Serial.println(motorVal);
+//    Serial.print("openFlag: ");
+//    Serial.println(openFlag);
 
 //    myMotor->run(FORWARD);
 //    myMotor->setSpeed(motorVal);
@@ -151,6 +220,7 @@ void loop() {
         myMotor->setSpeed(motorVal);
       }
   }
+
 
 }
 
@@ -178,3 +248,4 @@ void TICK() {
 //   Serial.print( B_CURRENT_STATE );
 //   Serial.print( '\n' );
 }
+
