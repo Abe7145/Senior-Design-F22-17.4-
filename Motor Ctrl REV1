@@ -55,7 +55,7 @@ int intError = 0; //integral error for I in PI controller -- tenths of a degree 
 int prevMyTime = 0; //previous loop time marker -- milliseconds 
 int currMyTime = 0; //current time marker -- milliseconds 
 int prev_pos = 0; // stores the position of the motor in the previous loop -- position in degrees
-int target = 180; // target position -- position in degrees
+int target = 360; // target position -- position in degrees
 double motorVal = 0;//variable to hold the value we write to the motor -- units in degrees
 static double current_pos = 0; // current position of the motor -- position in degrees
 bool openFlag = 0; // window open/close indicator
@@ -130,16 +130,9 @@ void setup()
 void loop() { 
   RemoteXY_Handler ();
 
-  // if windowPosFlag, set activageFlag=1
-
-//  Serial.print("weatherCtrlFlag: ");
-//  Serial.println(RemoteXY.weatherCtrlFlag);
-//  Serial.print("maxOpenPos: ");
-//  Serial.println(RemoteXY.maxOpenPos);
-//  Serial.print("windowPosFlag: ");
-//  Serial.println(RemoteXY.windowPosFlag);
-//  Serial.print("connect_flag: ");
-//  Serial.println(RemoteXY.connect_flag);
+  if (RemoteXY.windowPosFlag){
+    activateFlag=1;
+  }
    
     // Normalizing the unitless encoder counts into a 360 degree rotation
   current_pos = abs(double(count))/35.55;//2.22 , 8.88
@@ -149,7 +142,8 @@ void loop() {
     intError = 0;                         
     count = 0;
     hitFlag = 1;   //window hits target (an indicator - not a command)
-    //activateFlag = 0; 
+    activateFlag = 0;
+    myMotor->setSpeed(0);
     if (hitFlag && !closeFlag){
       closeFlag = 1;    //going to close window
       hitFlag = 0;
@@ -162,7 +156,7 @@ void loop() {
   }
   //Serial.print("windowPosFlag: ");
   //Serial.println(RemoteXY.windowPosFlag);
-  if (RemoteXY.windowPosFlag && !hitFlag){  //only activates if the button has been pressed and target is not hit
+  if (activateFlag && !hitFlag){  //only activates if the button has been pressed and target is not hit
     
     currMyTime = millis();//get current time
     if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
@@ -188,12 +182,12 @@ void loop() {
     
     
     
-    //Serial.print("target: ");
-    //Serial.println(target);
+//    Serial.print("target: ");
+//    Serial.println(target);
 //    Serial.print("counts: ");
 //    Serial.println(count);
-    //Serial.print("current_pos: ");
-    //Serial.println(current_pos);
+//    Serial.print("current_pos: ");
+//    Serial.println(current_pos);
 //    Serial.print("intError: ");
 //    Serial.println(double(intError));
 //    Serial.print("motorVal: ");
@@ -248,4 +242,3 @@ void TICK() {
 //   Serial.print( B_CURRENT_STATE );
 //   Serial.print( '\n' );
 }
-
