@@ -51,6 +51,7 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *myMotor = AFMS.getMotor(1);
 
 int count; // measures motor encoder counts -- unitless
+int countInd; // measure motor encoder counts for display indication -- unitless
 int intError = 0; //integral error for I in PI controller -- tenths of a degree second       
 int prevMyTime = 0; //previous loop time marker -- milliseconds 
 int currMyTime = 0; //current time marker -- milliseconds 
@@ -58,6 +59,7 @@ int prev_pos = 0; // stores the position of the motor in the previous loop -- po
 int target = 360; // target position -- position in degrees
 double motorVal = 0;//variable to hold the value we write to the motor -- units in degrees
 static double current_pos = 0; // current position of the motor -- position in degrees
+static double current_posTEMP = 0; // current position of the motor for display -- in deg (CHANGE TO IN)
 bool openFlag = 0; // window open/close indicator
 bool hitFlag = 0; // target reached flag
 bool closeFlag = 0; // close/open flag
@@ -128,28 +130,39 @@ void setup()
 }
 
 void loop() { 
-  RemoteXY_Handler ();
+  RemoteXY_Handler ();  //start app
 
-  if (RemoteXY.windowPosFlag){
+//  if (!activateFlag){
+//    dtostrf(current_posTEMP, 0, 1, RemoteXY.currPos); //display current position (IN DEGREES -- CHANGE)
+//  }
+//  else{
+//    dtostrf(current_pos, 0, 1, RemoteXY.currPos); //display current position (IN DEGREES -- CHANGE)
+//  }
+  current_posTEMP = double(countInd)/35.55;
+  dtostrf(current_posTEMP, 0, 1, RemoteXY.currPos);
+  
+
+  if (RemoteXY.windowPosFlag){ //if close/open button press, activate motor
     activateFlag=1;
   }
    
     // Normalizing the unitless encoder counts into a 360 degree rotation
   current_pos = abs(double(count))/35.55;//2.22 , 8.88
 
-  if (current_pos-target <=  3 && current_pos-target >=  -3){ //if system is within 2 deg
-    current_pos = target;
+  if (current_pos-target <=  3 && current_pos-target >=  -3){ //if system is within 3 deg of target
+    //current_pos = target;
+    current_posTEMP = current_pos; //for displaying position
     intError = 0;                         
     count = 0;
     hitFlag = 1;   //window hits target (an indicator - not a command)
     activateFlag = 0;
     myMotor->setSpeed(0);
     if (hitFlag && !closeFlag){
-      closeFlag = 1;    //going to close window
+      closeFlag = 1;    //going to close window next
       hitFlag = 0;
     }
     else{
-      closeFlag = 0;    //going to open window
+      closeFlag = 0;    //going to open window next
       hitFlag = 0;
     }
   
@@ -179,32 +192,6 @@ void loop() {
       }
       motorVal = int(motorVal);//normalize to 0-255 for adafruit ? values can be greater than 400?
     }
-    
-    
-    
-//    Serial.print("target: ");
-//    Serial.println(target);
-//    Serial.print("counts: ");
-//    Serial.println(count);
-//    Serial.print("current_pos: ");
-//    Serial.println(current_pos);
-//    Serial.print("intError: ");
-//    Serial.println(double(intError));
-//    Serial.print("motorVal: ");
-//    Serial.println(motorVal);
-//    Serial.print("openFlag: ");
-//    Serial.println(openFlag);
-
-//    myMotor->run(FORWARD);
-//    myMotor->setSpeed(motorVal);
-
-//    if (openFlag==0 && closeFlag == 0) {
-//      myMotor->run(FORWARD);
-//      myMotor->setSpeed(motorVal);
-//    } else if (openFlag==1 && closeFlag ==1) {
-//      myMotor->run(BACKWARD);
-//      myMotor->setSpeed(motorVal);
-//    }
 
       if (!closeFlag) {   //going to open window
         myMotor->run(FORWARD);
@@ -220,25 +207,17 @@ void loop() {
 
 // Encoder interrupt
 void TICK() {
-  //Serial.print("here");
-  // Normalize values over 360 degrees into values from 0-360
-//  if ( count >= 12800 ) {
-//
-//    count = 0;
-//  }
 
   A_CURRENT_STATE = digitalRead(ENCODER_A);//read state of signal A
   B_CURRENT_STATE = digitalRead(ENCODER_B);//read state of signal B
 
   if (A_CURRENT_STATE==B_CURRENT_STATE){ //if the signals are the same
-
-    count+=1;//subract from the count
+    count+=1; //add to count
+    countInd+=1; //add to count indicator
+    
   }
   else {//if signals are different
-    count-=1;//add 2 to the count
+    count-=1;//sub to count
+    countInd-=1; //sub to count indicator
   }
-//   Serial.print( A_CURRENT_STATE );
-//   Serial.print( "  " );
-//   Serial.print( B_CURRENT_STATE );
-//   Serial.print( '\n' );
 }
