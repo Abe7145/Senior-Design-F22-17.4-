@@ -48,7 +48,9 @@ bool B_CURRENT_STATE = 0;
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 // And connect a DC motor to port M1
-Adafruit_DCMotor *myMotor = AFMS.getMotor(1);
+Adafruit_DCMotor *myMotor1 = AFMS.getMotor(1);
+Adafruit_DCMotor *myMotor2 = AFMS.getMotor(2);
+Adafruit_DCMotor *myMotor3 = AFMS.getMotor(3);
 
 long count; // measures motor encoder counts -- unitless
 long countInd; // measure motor encoder counts for display indication -- unitless
@@ -56,7 +58,7 @@ int intError = 0; //integral error for I in PI controller -- tenths of a degree 
 int prevMyTime = 0; //previous loop time marker -- milliseconds 
 int currMyTime = 0; //current time marker -- milliseconds 
 int prev_pos = 0; // stores the position of the motor in the previous loop -- position in degrees
-int target = 360; // target position -- position in degrees
+int target = 0; // target position -- position in degrees
 double motorVal = 0;//variable to hold the value we write to the motor -- units in degrees
 static double current_pos = 0; // current position of the motor -- position in degrees
 static double current_posInd = 0; // current position of the motor for display -- in deg (CHANGE TO IN)
@@ -132,10 +134,15 @@ void loop() {
 
   // Change targetIn if the window is going to open next (closeFlag=0) and window is not currently moving (activateFlag=0)
   if (!closeFlag && !activateFlag){
-    target = RemoteXY.maxOpenPos * 360/3; //convert input target to deg (3in/360deg)
+    if (RemoteXY.maxOpenPos < 3){  //limiting input to 3-14in
+      target = 360 ;     
+    }else if (RemoteXY.maxOpenPos > 14){
+      target = 1680;
+    }
+    else{
+      target = RemoteXY.maxOpenPos * 360/3; //convert input target to deg (3in/360deg)
+    }
   }
-  
-  //TODO: set limits on input values 2 and under not reliable???
 
   // Normalizing the unitless encoder counts into a 360 degree rotation
   current_pos = abs(double(count))/35.55;//2.22 , 8.88
@@ -154,7 +161,9 @@ void loop() {
     count = 0;
     hitFlag = 1;   //window hits target (an indicator - not a command)
     activateFlag = 0;
-    myMotor->setSpeed(0);
+    myMotor1->setSpeed(0);
+    myMotor2->setSpeed(0);
+    myMotor3->setSpeed(0);
     if (hitFlag && !closeFlag){
       closeFlag = 1;    //going to close window next
       hitFlag = 0;
@@ -191,11 +200,20 @@ void loop() {
     }
 
       if (!closeFlag) {   //going to open window
-        myMotor->run(FORWARD);
-        myMotor->setSpeed(motorVal);
+        myMotor1->run(FORWARD);
+        myMotor1->setSpeed(motorVal);
+        myMotor2->run(FORWARD);
+        myMotor2->setSpeed(motorVal);
+        myMotor3->run(FORWARD);
+        myMotor3->setSpeed(motorVal);
       } else {            //going to close window
-        myMotor->run(BACKWARD);
-        myMotor->setSpeed(motorVal);
+        myMotor1->run(BACKWARD);
+        myMotor1->setSpeed(motorVal);
+        myMotor2->run(BACKWARD);
+        myMotor2->setSpeed(motorVal);
+        myMotor3->run(BACKWARD);
+        myMotor3->setSpeed(motorVal);
+        //NEED INTERRUPTS!!!!
       }
   }
 
