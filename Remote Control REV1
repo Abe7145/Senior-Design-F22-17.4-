@@ -21,15 +21,95 @@
 
 // RemoteXY select connection mode and include library 
 #define REMOTEXY_MODE__ESP8266_HARDSERIAL_POINT
-
 #include <RemoteXY.h>
+#include "PinChangeInterrupt.h"
 
 // RemoteXY connection settings 
 #define REMOTEXY_SERIAL Serial
 #define REMOTEXY_SERIAL_SPEED 115200
 #define REMOTEXY_WIFI_SSID "Hearthstone Windows"
-#define REMOTEXY_WIFI_PASSWORD "12345678"
+#define REMOTEXY_WIFI_PASSWORD ""
 #define REMOTEXY_SERVER_PORT 6377
+
+
+#include <Wire.h>
+#include <Adafruit_MotorShield.h>
+
+// Connect to the two encoder pin
+#define ENCODER_A1   2
+#define ENCODER_B1   5
+
+#define ENCODER_A2   3
+#define ENCODER_B2   6
+
+#define ENCODER_A3   8
+#define ENCODER_B3   9
+
+// This program uses a state machine to track the encoder’s position
+// These variables store the state
+
+bool A_CURRENT_STATE1 = 0;
+bool B_CURRENT_STATE1 = 0;
+bool A_CURRENT_STATE2 = 0;
+bool B_CURRENT_STATE2 = 0;
+bool A_CURRENT_STATE3 = 0;
+bool B_CURRENT_STATE3 = 0;
+
+// Create the motor shield object with the default I2C address
+Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+// And connect a DC motor to port M1
+Adafruit_DCMotor *myMotor1 = AFMS.getMotor(1);
+Adafruit_DCMotor *myMotor2 = AFMS.getMotor(2);
+Adafruit_DCMotor *myMotor3 = AFMS.getMotor(3);
+
+long count1; // measures motor encoder count1s -- unitless
+long count1Ind; // measure motor encoder count1s for display indication -- unitless
+long count2; // measures motor encoder count1s -- unitless
+long count2Ind; // measure motor encoder count1s for display indication -- unitless
+long count3; // measures motor encoder count1s -- unitless
+long count3Ind; // measure motor encoder count1s for display indication -- unitless
+
+int intError1 = 0; //integral error for I in PI controller -- tenths of a degree second
+int intError2 = 0; //integral error for I in PI controller -- tenths of a degree second
+int intError3 = 0; //integral error for I in PI controller -- tenths of a degree second 
+
+int prevMyTime = 0; //previous loop time marker -- milliseconds 
+int currMyTime = 0; //current time marker -- milliseconds 
+
+int prev_pos1 = 0; // stores the position of the motor in the previous loop -- position in degrees
+int prev_pos2 = 0; // stores the position of the motor in the previous loop -- position in degrees
+int prev_pos3 = 0; // stores the position of the motor in the previous loop -- position in degrees
+
+int target1 = 0; // target1 position -- position in degrees
+int target2 = 0; // target1 position -- position in degrees
+int target3 = 0; // target1 position -- position in degrees
+
+double motorVal1 = 0;//variable to hold the value we write to the motor -- units in degrees
+double motorVal2 = 0;//variable to hold the value we write to the motor -- units in degrees
+double motorVal3 = 0;//variable to hold the value we write to the motor -- units in degrees
+
+static double current_pos1 = 0; // current position of the motor -- position in degrees
+static double current_pos1Ind = 0; // current position of the motor for display -- in deg (CHANGE TO IN)
+static double current_pos2 = 0; // current position of the motor -- position in degrees
+static double current_pos2Ind = 0; // current position of the motor for display -- in deg (CHANGE TO IN)
+static double current_pos3 = 0; // current position of the motor -- position in degrees
+static double current_pos3Ind = 0; // current position of the motor for display -- in deg (CHANGE TO IN)
+
+bool openFlag = 0; // window open/close indicator
+
+bool hitFlag1 = 0; // target1 reached flag
+bool hitFlag2 = 0; // target1 reached flag
+bool hitFlag3 = 0; // target1 reached flag
+
+bool closeFlag1 = 0; // close/open flag
+bool closeFlag2 = 0; // close/open flag
+bool closeFlag3 = 0; // close/open flag
+
+bool activateFlag = 0; // button press flag
+
+// Proportional controller constants
+const double Ki = 0.0008; // 0.01
+const double Kp = 9.5; //3.5
 
 
 // RemoteXY configurate  
@@ -73,3 +153,297 @@ struct {
 /////////////////////////////////////////////
 //           END RemoteXY include          //
 /////////////////////////////////////////////
+
+
+
+void setup() 
+{
+  RemoteXY_Init (); 
+
+  // Encoder pins
+  pinMode(ENCODER_A1, INPUT);
+  pinMode(ENCODER_B1, INPUT);
+
+  pinMode(ENCODER_A2, INPUT);
+  pinMode(ENCODER_B2, INPUT);
+
+  pinMode(ENCODER_A3, INPUT);
+  pinMode(ENCODER_B3, INPUT);
+
+  Serial.begin(115200);
+  
+  // Setting up the interrupt handler 
+  // Activates whenever the CLK pin on the encoder changes voltage
+  attachInterrupt(digitalPinToInterrupt(ENCODER_A1), TICK1, CHANGE); 
+  attachInterrupt(digitalPinToInterrupt(ENCODER_A2), TICK2, CHANGE); 
+  attachPCINT(digitalPinToPCINT(ENCODER_A3), TICK3, CHANGE); 
+
+  if (!AFMS.begin(1000)) {  // OR with a different frequency, say 1KHz
+    Serial.println("Could not find Motor Shield. Check wiring.");
+    while (1);
+  }
+  Serial.println("Motor Shield found.");  Serial.println("Begun");
+  // turn on motor M1
+  //myMotor->setSpeed(0);
+  
+}
+
+void loop() { 
+  RemoteXY_Handler ();  //start app
+
+  // Change target1In if the window is going to open next (closeFlag1=0) and window is not currently moving (activateFlag=0)
+  if (!closeFlag1 && !activateFlag){
+    if (RemoteXY.maxOpenPos < 3){  //limiting input to 3-14in
+      target1 = 360 ;     
+    }else if (RemoteXY.maxOpenPos > 14){
+      target1 = 1680;
+    }
+    else{
+      target1 = RemoteXY.maxOpenPos * 360/3; //convert input target1 to deg (3in/360deg)
+    }
+  }
+  if (!closeFlag2 && !activateFlag){
+    if (RemoteXY.maxOpenPos < 3){  //limiting input to 3-14in
+      target2 = 360 ;     
+    }else if (RemoteXY.maxOpenPos > 14){
+      target2 = 1680;
+    }
+    else{
+      target2 = RemoteXY.maxOpenPos * 360/3; //convert input target1 to deg (3in/360deg)
+    }
+  }
+  if (!closeFlag3 && !activateFlag){
+    if (RemoteXY.maxOpenPos < 3){  //limiting input to 3-14in
+      target3 = 360 ;     
+    }else if (RemoteXY.maxOpenPos > 14){
+      target3 = 1680;
+    }
+    else{
+      target3 = RemoteXY.maxOpenPos * 360/3; //convert input target1 to deg (3in/360deg)
+    }
+  }
+
+  // Normalizing the unitless encoder count1s into a 360 degree rotation
+  current_pos1 = abs(double(count1))/35.55;//2.22 , 8.88
+  current_pos2 = abs(double(count2))/35.55;//2.22 , 8.88
+  current_pos3 = abs(double(count3))/35.55;//2.22 , 8.88
+  
+  current_pos1Ind = double(count1Ind)/35.55 * 3/360; //convert degrees to in (3in/360deg)
+  current_pos2Ind = double(count2Ind)/35.55 * 3/360;
+  current_pos3Ind = double(count3Ind)/35.55 * 3/360;
+
+  dtostrf(current_pos1Ind, 0, 1, RemoteXY.currPos1);
+  dtostrf(current_pos2Ind, 0, 1, RemoteXY.currPos2);
+  dtostrf(current_pos3Ind, 0, 1, RemoteXY.currPos3);   //diplay current position
+ 
+  if (RemoteXY.windowPosFlag){ //if close/open button press, activate motor
+    activateFlag=1;
+  }
+     
+
+  if (current_pos1-target1 <=  3 && current_pos1-target1 >=  -3){ //if system is within 3 deg of target1
+    intError1 = 0;                         
+    count1 = 0;
+    hitFlag1 = 1;   //window hits target1 (an indicator - not a command)
+    activateFlag = 0;
+    myMotor1->setSpeed(0);
+    if (hitFlag1 && !closeFlag1){
+      closeFlag1 = 1;    //going to close window next
+      hitFlag1 = 0;
+    }
+    else{
+      closeFlag1 = 0;    //going to open window next
+      hitFlag1 = 0;
+    }
+  
+  }
+
+   if (current_pos2-target2 <=  3 && current_pos2-target2 >=  -3){ //if system is within 3 deg of target1
+    intError2 = 0;                         
+    count2 = 0;
+    hitFlag2 = 1;   //window hits target1 (an indicator - not a command)
+    activateFlag = 0;
+    myMotor2->setSpeed(0);
+    if (hitFlag2 && !closeFlag2){
+      closeFlag2 = 1;    //going to close window next
+      hitFlag2 = 0;
+    }
+    else{
+      closeFlag2 = 0;    //going to open window next
+      hitFlag2 = 0;
+    }
+  
+  }
+
+   if (current_pos3-target3 <=  3 && current_pos3-target3 >=  -3){ //if system is within 3 deg of target1
+    intError3 = 0;                         
+    count3 = 0;
+    hitFlag3 = 1;   //window hits target1 (an indicator - not a command)
+    activateFlag = 0;
+    myMotor3->setSpeed(0);
+    if (hitFlag3 && !closeFlag3){
+      closeFlag3 = 1;    //going to close window next
+      hitFlag3 = 0;
+    }
+    else{
+      closeFlag3 = 0;    //going to open window next
+      hitFlag3 = 0;
+    }
+  
+  }
+  
+  if (activateFlag && !hitFlag1){  //only activates if the button has been pressed and target1 is not hit
+    
+    currMyTime = millis();//get current time
+    if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
+  
+      // calculating integral error
+      intError1 += (current_pos1-target1);
+  
+      // storing dt
+      prev_pos1 = current_pos1;//reset prev_pos1
+      prevMyTime = currMyTime;//reset prevMyTime
+  
+      // use built in shield library to move the motor 
+      // takes in values from -400 to 400
+      // uses a built in PWM to control the voltage supplied to the motor
+      motorVal1 = double( target1-current_pos1 ) * Kp + (Ki * double(intError1)); //calculate the motor val
+      //md.setM1Speed( motorVal1 );
+  
+      if (motorVal1 > 255) {
+        motorVal1 = 255;
+      }
+      motorVal1 = int(motorVal1);//normalize to 0-255 for adafruit ? values can be greater than 400?
+    }
+
+      if (!closeFlag1) {   //going to open window
+        myMotor1->run(FORWARD);
+        myMotor1->setSpeed(motorVal1);
+      } else {            //going to close window
+        myMotor1->run(BACKWARD);
+        myMotor1->setSpeed(motorVal1);
+        //NEED INTERRUPTS!!!!
+      }
+  }
+
+
+  if (activateFlag && !hitFlag2){  //only activates if the button has been pressed and target1 is not hit
+    
+    currMyTime = millis();//get current time
+    if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
+  
+      // calculating integral error
+      intError2 += (current_pos2-target2);
+  
+      // storing dt
+      prev_pos2 = current_pos2;//reset prev_pos1
+      prevMyTime = currMyTime;//reset prevMyTime
+  
+      // use built in shield library to move the motor 
+      // takes in values from -400 to 400
+      // uses a built in PWM to control the voltage supplied to the motor
+      motorVal2 = double( target2-current_pos2 ) * Kp + (Ki * double(intError2)); //calculate the motor val
+      //md.setM1Speed( motorVal1 );
+  
+      if (motorVal2 > 255) {
+        motorVal2 = 255;
+      }
+      motorVal2 = int(motorVal2);//normalize to 0-255 for adafruit ? values can be greater than 400?
+    }
+
+      if (!closeFlag2) {   //going to open window
+        myMotor2->run(FORWARD);
+        myMotor2->setSpeed(motorVal2);
+      } else {            //going to close window
+        myMotor2->run(BACKWARD);
+        myMotor2->setSpeed(motorVal2);
+        //NEED INTERRUPTS!!!!
+      }
+  }
+
+
+  if (activateFlag && !hitFlag3){  //only activates if the button has been pressed and target1 is not hit
+    
+    currMyTime = millis();//get current time
+    if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
+  
+      // calculating integral error
+      intError3 += (current_pos3-target3);
+  
+      // storing dt
+      prev_pos3 = current_pos3;//reset prev_pos1
+      prevMyTime = currMyTime;//reset prevMyTime
+  
+      // use built in shield library to move the motor 
+      // takes in values from -400 to 400
+      // uses a built in PWM to control the voltage supplied to the motor
+      motorVal3 = double( target3-current_pos3 ) * Kp + (Ki * double(intError3)); //calculate the motor val
+      //md.setM1Speed( motorVal1 );
+  
+      if (motorVal3 > 255) {
+        motorVal3 = 255;
+      }
+      motorVal3 = int(motorVal3);//normalize to 0-255 for adafruit ? values can be greater than 400?
+    }
+
+      if (!closeFlag3) {   //going to open window
+        myMotor3->run(FORWARD);
+        myMotor3->setSpeed(motorVal3);
+      } else {            //going to close window
+        myMotor3->run(BACKWARD);
+        myMotor3->setSpeed(motorVal3);
+        //NEED INTERRUPTS!!!!
+      }
+  }
+
+
+}
+
+// Encoder interrupt
+void TICK1() {
+
+  A_CURRENT_STATE1 = digitalRead(ENCODER_A1);//read state of signal A
+  B_CURRENT_STATE1 = digitalRead(ENCODER_B1);//read state of signal B
+
+  if (A_CURRENT_STATE1==B_CURRENT_STATE1){ //if the signals are the same
+    count1+=1; //add to count1
+    count1Ind+=1; //add to count1 indicator
+    
+  }
+  else {//if signals are different
+    count1-=1;//sub to count1
+    count1Ind-=1; //sub to count1 indicator
+  }
+}
+
+void TICK2() {
+
+  A_CURRENT_STATE2 = digitalRead(ENCODER_A2);//read state of signal A
+  B_CURRENT_STATE2 = digitalRead(ENCODER_B2);//read state of signal B
+
+  if (A_CURRENT_STATE2==B_CURRENT_STATE2){ //if the signals are the same
+    count2+=1; //add to count1
+    count2Ind+=1; //add to count1 indicator
+    
+  }
+  else {//if signals are different
+    count2-=1;//sub to count1
+    count2Ind-=1; //sub to count1 indicator
+  }
+}
+
+void TICK3() {
+
+  A_CURRENT_STATE3 = digitalRead(ENCODER_A3);//read state of signal A
+  B_CURRENT_STATE3 = digitalRead(ENCODER_B3);//read state of signal B
+
+  if (A_CURRENT_STATE3==B_CURRENT_STATE3){ //if the signals are the same
+    count3+=1; //add to count1
+    count3Ind+=1; //add to count1 indicator
+    
+  }
+  else {//if signals are different
+    count3-=1;//sub to count1
+    count3Ind-=1; //sub to count1 indicator
+  }
+}
