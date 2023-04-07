@@ -80,9 +80,9 @@ int prev_pos1 = 0; // stores the position of the motor in the previous loop -- p
 int prev_pos2 = 0; // stores the position of the motor in the previous loop -- position in degrees
 int prev_pos3 = 0; // stores the position of the motor in the previous loop -- position in degrees
 
-int target1 = 0; // target1 position -- position in degrees
-int target2 = 0; // target1 position -- position in degrees
-int target3 = 0; // target1 position -- position in degrees
+int target1 = 360; // target1 position -- position in degrees
+int target2 = 360; // target1 position -- position in degrees
+int target3 = 360; // target1 position -- position in degrees
 
 double motorVal1 = 0;//variable to hold the value we write to the motor -- units in degrees
 double motorVal2 = 0;//variable to hold the value we write to the motor -- units in degrees
@@ -191,8 +191,32 @@ void setup()
 void loop() { 
   RemoteXY_Handler ();  //start app
 
-  // Change target1In if the window is going to open next (closeFlag1=0) and window is not currently moving (activateFlag=0)
-  if (!closeFlag1 && !activateFlag){
+
+  // Overshoot protection
+  if (current_pos1 >= 1680){
+    myMotor1->setSpeed(0);
+    intError1 = 0;                         
+    count1 = 0;
+    hitFlag1 = 1; //motor hits target3
+    activateFlag = 0;
+  }
+  if (current_pos2 >= 1680){
+    myMotor2->setSpeed(0);
+    intError2 = 0;                         
+    count2 = 0;
+    hitFlag2 = 1; //motor hits target3
+    activateFlag = 0;
+  }
+  if (current_pos3 >= 1680){
+    myMotor3->setSpeed(0);
+    intError3 = 0;                         
+    count3 = 0;
+    hitFlag3 = 1; //motor hits target3
+    activateFlag = 0;
+  }
+  
+  // Change target1 if the window is going to open next (closeFlag1=0), window is not currently moving (activateFlag=0), and prev target has been hit (hitFlag=1)
+  if (!closeFlag1 && !activateFlag && hitFlag1){ //WINDOW1
     if (RemoteXY.maxOpenPos < 3){  //limiting input to 3-14in
       target1 = 360 ;     
     }else if (RemoteXY.maxOpenPos > 14){
@@ -202,24 +226,26 @@ void loop() {
       target1 = RemoteXY.maxOpenPos * 360/3; //convert input target1 to deg (3in/360deg)
     }
   }
-  if (!closeFlag2 && !activateFlag){
+  
+  if (!closeFlag2 && !activateFlag && hitFlag2){ //WINDOW2
     if (RemoteXY.maxOpenPos < 3){  //limiting input to 3-14in
       target2 = 360 ;     
     }else if (RemoteXY.maxOpenPos > 14){
       target2 = 1680;
     }
     else{
-      target2 = RemoteXY.maxOpenPos * 360/3; //convert input target1 to deg (3in/360deg)
+      target2 = RemoteXY.maxOpenPos * 360/3; //convert input target2 to deg (3in/360deg)
     }
   }
-  if (!closeFlag3 && !activateFlag){
+  
+  if (!closeFlag3 && !activateFlag && hitFlag3){ //WINDOW3
     if (RemoteXY.maxOpenPos < 3){  //limiting input to 3-14in
       target3 = 360 ;     
     }else if (RemoteXY.maxOpenPos > 14){
       target3 = 1680;
     }
     else{
-      target3 = RemoteXY.maxOpenPos * 360/3; //convert input target1 to deg (3in/360deg)
+      target3 = RemoteXY.maxOpenPos * 360/3; //convert input target3 to deg (3in/360deg)
     }
   }
 
@@ -227,72 +253,76 @@ void loop() {
   current_pos1 = abs(double(count1))/35.55;//2.22 , 8.88
   current_pos2 = abs(double(count2))/35.55;//2.22 , 8.88
   current_pos3 = abs(double(count3))/35.55;//2.22 , 8.88
-  
-  current_pos1Ind = double(count1Ind)/35.55 * 3/360; //convert degrees to in (3in/360deg)
+
+  //Convert degrees to in (3in/360deg) for display
+  current_pos1Ind = double(count1Ind)/35.55 * 3/360; 
   current_pos2Ind = double(count2Ind)/35.55 * 3/360;
   current_pos3Ind = double(count3Ind)/35.55 * 3/360;
-
-  dtostrf(current_pos1Ind, 0, 1, RemoteXY.currPos1);
+  dtostrf(current_pos1Ind, 0, 1, RemoteXY.currPos1);  //display
   dtostrf(current_pos2Ind, 0, 1, RemoteXY.currPos2);
-  dtostrf(current_pos3Ind, 0, 1, RemoteXY.currPos3);   //diplay current position
+  dtostrf(current_pos3Ind, 0, 1, RemoteXY.currPos3);   
  
   if (RemoteXY.windowPosFlag){ //if close/open button press, activate motor
     activateFlag=1;
+    hitFlag1=0;
+    hitFlag2=0;
+    hitFlag3=0;
   }
      
-
-  if (current_pos1-target1 <=  3 && current_pos1-target1 >=  -3){ //if system is within 3 deg of target1
+  //If current position is within 3 deg of target, stop motor, and count motor as a hit
+  if (current_pos1-target1 <=  4 && current_pos1-target1 >=  -4){ //WINDOW1
     intError1 = 0;                         
     count1 = 0;
-    hitFlag1 = 1;   //window hits target1 (an indicator - not a command)
-    activateFlag = 0;
-    myMotor1->setSpeed(0);
+    hitFlag1 = 1; //motor hits target1
+    activateFlag = 0; 
+    myMotor1->setSpeed(0); //stop running
     if (hitFlag1 && !closeFlag1){
-      closeFlag1 = 1;    //going to close window next
-      hitFlag1 = 0;
+      closeFlag1 = 1;    //going to close window1 next
+      //hitFlag1 = 0;
     }
     else{
-      closeFlag1 = 0;    //going to open window next
-      hitFlag1 = 0;
+      closeFlag1 = 0;    //going to open window1 next
+      //hitFlag1 = 0;
     }
   
   }
 
-   if (current_pos2-target2 <=  3 && current_pos2-target2 >=  -3){ //if system is within 3 deg of target1
+   if (current_pos2-target2 <=  4 && current_pos2-target2 >=  -4){ //WINDOW2
     intError2 = 0;                         
     count2 = 0;
-    hitFlag2 = 1;   //window hits target1 (an indicator - not a command)
+    hitFlag2 = 1; //motor hits target2
     activateFlag = 0;
-    myMotor2->setSpeed(0);
+    myMotor2->setSpeed(0); //stop running
     if (hitFlag2 && !closeFlag2){
-      closeFlag2 = 1;    //going to close window next
-      hitFlag2 = 0;
+      closeFlag2 = 1;    //going to close window2 next
+      //hitFlag2 = 0;
     }
     else{
-      closeFlag2 = 0;    //going to open window next
-      hitFlag2 = 0;
+      closeFlag2 = 0;    //going to open window2 next
+      //hitFlag2 = 0;
     }
   
   }
 
-   if (current_pos3-target3 <=  3 && current_pos3-target3 >=  -3){ //if system is within 3 deg of target1
+   if (current_pos3-target3 <=  4 && current_pos3-target3 >=  -4){ //WINDOW3
     intError3 = 0;                         
     count3 = 0;
-    hitFlag3 = 1;   //window hits target1 (an indicator - not a command)
+    hitFlag3 = 1; //motor hits target3
     activateFlag = 0;
-    myMotor3->setSpeed(0);
+    myMotor3->setSpeed(0); //stop running
     if (hitFlag3 && !closeFlag3){
-      closeFlag3 = 1;    //going to close window next
-      hitFlag3 = 0;
+      closeFlag3 = 1;    //going to close window3 next
+      //hitFlag3 = 0;
     }
     else{
-      closeFlag3 = 0;    //going to open window next
-      hitFlag3 = 0;
+      closeFlag3 = 0;    //going to open window3 next
+      //hitFlag3 = 0;
     }
   
   }
-  
-  if (activateFlag && !hitFlag1){  //only activates if the button has been pressed and target1 is not hit
+
+  //Only activate motor if the button has been pressed and target is not hit
+  if (activateFlag && !hitFlag1){ //WINDOW1
     
     currMyTime = millis();//get current time
     if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
@@ -322,33 +352,28 @@ void loop() {
       } else {            //going to close window
         myMotor1->run(BACKWARD);
         myMotor1->setSpeed(motorVal1);
-        //NEED INTERRUPTS!!!!
       }
   }
 
 
-  if (activateFlag && !hitFlag2){  //only activates if the button has been pressed and target1 is not hit
+  if (activateFlag && !hitFlag2){  //WINDOW2
     
     currMyTime = millis();//get current time
-    if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
+    if (currMyTime >= prevMyTime+1){ //sample every 10th of a second
   
       // calculating integral error
       intError2 += (current_pos2-target2);
   
       // storing dt
-      prev_pos2 = current_pos2;//reset prev_pos1
-      prevMyTime = currMyTime;//reset prevMyTime
+      prev_pos2 = current_pos2; //reset prev_pos1
+      prevMyTime = currMyTime; //reset prevMyTime
   
-      // use built in shield library to move the motor 
-      // takes in values from -400 to 400
-      // uses a built in PWM to control the voltage supplied to the motor
       motorVal2 = double( target2-current_pos2 ) * Kp + (Ki * double(intError2)); //calculate the motor val
-      //md.setM1Speed( motorVal1 );
   
       if (motorVal2 > 255) {
         motorVal2 = 255;
       }
-      motorVal2 = int(motorVal2);//normalize to 0-255 for adafruit ? values can be greater than 400?
+      motorVal2 = int(motorVal2);
     }
 
       if (!closeFlag2) {   //going to open window
@@ -357,12 +382,11 @@ void loop() {
       } else {            //going to close window
         myMotor2->run(BACKWARD);
         myMotor2->setSpeed(motorVal2);
-        //NEED INTERRUPTS!!!!
       }
   }
 
 
-  if (activateFlag && !hitFlag3){  //only activates if the button has been pressed and target1 is not hit
+  if (activateFlag && !hitFlag3){  //WINDOW3
     
     currMyTime = millis();//get current time
     if (currMyTime >= prevMyTime+1){ // sample every 10th of a second
@@ -371,19 +395,15 @@ void loop() {
       intError3 += (current_pos3-target3);
   
       // storing dt
-      prev_pos3 = current_pos3;//reset prev_pos1
-      prevMyTime = currMyTime;//reset prevMyTime
-  
-      // use built in shield library to move the motor 
-      // takes in values from -400 to 400
-      // uses a built in PWM to control the voltage supplied to the motor
+      prev_pos3 = current_pos3;
+      prevMyTime = currMyTime;
+
       motorVal3 = double( target3-current_pos3 ) * Kp + (Ki * double(intError3)); //calculate the motor val
-      //md.setM1Speed( motorVal1 );
   
       if (motorVal3 > 255) {
         motorVal3 = 255;
       }
-      motorVal3 = int(motorVal3);//normalize to 0-255 for adafruit ? values can be greater than 400?
+      motorVal3 = int(motorVal3);
     }
 
       if (!closeFlag3) {   //going to open window
@@ -392,7 +412,6 @@ void loop() {
       } else {            //going to close window
         myMotor3->run(BACKWARD);
         myMotor3->setSpeed(motorVal3);
-        //NEED INTERRUPTS!!!!
       }
   }
 
@@ -411,7 +430,7 @@ void TICK1() {
     
   }
   else {//if signals are different
-    count1-=1;//sub to count1
+    count1-=1; //sub to count1
     count1Ind-=1; //sub to count1 indicator
   }
 }
@@ -422,13 +441,13 @@ void TICK2() {
   B_CURRENT_STATE2 = digitalRead(ENCODER_B2);//read state of signal B
 
   if (A_CURRENT_STATE2==B_CURRENT_STATE2){ //if the signals are the same
-    count2+=1; //add to count1
-    count2Ind+=1; //add to count1 indicator
+    count2+=1; //add to count2
+    count2Ind+=1; //add to count2 indicator
     
   }
   else {//if signals are different
-    count2-=1;//sub to count1
-    count2Ind-=1; //sub to count1 indicator
+    count2-=1; //sub to count2
+    count2Ind-=1; //sub to count3 indicator
   }
 }
 
@@ -438,12 +457,12 @@ void TICK3() {
   B_CURRENT_STATE3 = digitalRead(ENCODER_B3);//read state of signal B
 
   if (A_CURRENT_STATE3==B_CURRENT_STATE3){ //if the signals are the same
-    count3+=1; //add to count1
-    count3Ind+=1; //add to count1 indicator
+    count3+=1; //add to count3
+    count3Ind+=1; //add to count3 indicator
     
   }
   else {//if signals are different
-    count3-=1;//sub to count1
-    count3Ind-=1; //sub to count1 indicator
+    count3-=1;//sub to count3
+    count3Ind-=1; //sub to count3 indicator
   }
 }
