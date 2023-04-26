@@ -237,7 +237,7 @@ void loop() {
 //   
   if (RemoteXY.manFlag){ // manual mode active
     if (RemoteXY.backwardsMAN && RemoteXY.selectWindowMAN==0){  //going backwards, WINDOW1
-      myMotor1->run(BACKWARD);
+      myMotor1->run(FORWARD);
       if (RemoteXY.setSpeedMAN>255){
         myMotor1->setSpeed(255);
       }
@@ -250,7 +250,7 @@ void loop() {
     }
     
     if (RemoteXY.forwardsMAN && RemoteXY.selectWindowMAN==0){ //going forwards, WINDOW1
-      myMotor1->run(FORWARD);
+      myMotor1->run(BACKWARD);
       if (RemoteXY.setSpeedMAN>255){
         myMotor1->setSpeed(255);
       }
@@ -263,7 +263,7 @@ void loop() {
     }
 
     if (RemoteXY.backwardsMAN && RemoteXY.selectWindowMAN==1){  //going backwards, WINDOW2
-      myMotor2->run(BACKWARD);
+      myMotor2->run(FORWARD);
       if (RemoteXY.setSpeedMAN>255){
         myMotor2->setSpeed(255);
       }
@@ -276,7 +276,7 @@ void loop() {
     }
     
     if (RemoteXY.forwardsMAN && RemoteXY.selectWindowMAN==1){ //going forwards, WINDOW2
-      myMotor2->run(FORWARD);
+      myMotor2->run(BACKWARD);
       if (RemoteXY.setSpeedMAN>255){
         myMotor2->setSpeed(255);
       }
@@ -289,7 +289,7 @@ void loop() {
     }
 
     if (RemoteXY.backwardsMAN && RemoteXY.selectWindowMAN==2){  //going backwards, WINDOW3
-      myMotor3->run(BACKWARD);
+      myMotor3->run(FORWARD);
       if (RemoteXY.setSpeedMAN>255){
         myMotor3->setSpeed(255);
       }
@@ -302,7 +302,7 @@ void loop() {
     }
     
     if (RemoteXY.forwardsMAN && RemoteXY.selectWindowMAN==2){ //going forwards, WINDOW3
-      myMotor3->run(FORWARD);
+      myMotor3->run(BACKWARD);
       if (RemoteXY.setSpeedMAN>255){
         myMotor3->setSpeed(255);
       }
@@ -475,10 +475,10 @@ void loop() {
       }
   
         if (!closeFlag1) {   //going to open window
-          myMotor1->run(BACKWARD);
+          myMotor1->run(FORWARD);
           myMotor1->setSpeed(motorVal1);
         } else {            //going to close window
-          myMotor1->run(FORWARD);
+          myMotor1->run(BACKWARD);
           myMotor1->setSpeed(motorVal1);
         }
     }
@@ -505,10 +505,10 @@ void loop() {
       }
   
         if (!closeFlag2) {   //going to open window
-          myMotor2->run(BACKWARD);
+          myMotor2->run(FORWARD);
           myMotor2->setSpeed(motorVal2);
         } else {            //going to close window
-          myMotor2->run(FORWARD);
+          myMotor2->run(BACKWARD);
           myMotor2->setSpeed(motorVal2);
         }
     }
@@ -535,10 +535,10 @@ void loop() {
       }
   
         if (!closeFlag3) {   //going to open window
-          myMotor3->run(BACKWARD);
+          myMotor3->run(FORWARD);
           myMotor3->setSpeed(motorVal3);
         } else {            //going to close window
-          myMotor3->run(FORWARD);
+          myMotor3->run(BACKWARD);
           myMotor3->setSpeed(motorVal3);
         }
     }
