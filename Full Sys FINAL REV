@@ -555,12 +555,12 @@ void TICK1() {
 
   if (A_CURRENT_STATE1==B_CURRENT_STATE1){ //if the signals are the same
     count1-=1; //add to count1
-    count1Ind-=1; //add to count1 indicator
+    count1Ind+=1; //add to count1 indicator
     
   }
   else {//if signals are different
     count1+=1; //sub to count1
-    count1Ind+=1; //sub to count1 indicator
+    count1Ind-=1; //sub to count1 indicator
   }
 }
 
@@ -571,12 +571,12 @@ void TICK2() {
 
   if (A_CURRENT_STATE2==B_CURRENT_STATE2){ //if the signals are the same
     count2-=1; //add to count2
-    count2Ind-=1; //add to count2 indicator
+    count2Ind+=1; //add to count2 indicator
     
   }
   else {//if signals are different
     count2+=1; //sub to count2
-    count2Ind+=1; //sub to count3 indicator
+    count2Ind-=1; //sub to count3 indicator
   }
 }
 
@@ -587,11 +587,11 @@ void TICK3() {
 
   if (A_CURRENT_STATE3==B_CURRENT_STATE3){ //if the signals are the same
     count3-=1; //add to count3
-    count3Ind-=1; //add to count3 indicator
+    count3Ind+=1; //add to count3 indicator
     
   }
   else {//if signals are different
     count3+=1;//sub to count3
-    count3Ind+=1; //sub to count3 indicator
+    count3Ind-=1; //sub to count3 indicator
   }
 }
